@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Summary - Fast & Simple</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Extend Tailwind's default theme to include the 'Inter' font
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        '3xl': '0 35px 60px -15px rgba(0, 0, 0, 0.3)',
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+    <script>
+        // Set the worker source for PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js';
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        /* Custom styles for the document-like display */
+        .document-display {
+            min-height: 300px; /* Minimum height for the summary area */
+            max-height: 600px; /* Maximum height before scrolling */
+            overflow-y: auto; /* Enable vertical scrolling */
+            white-space: pre-wrap; /* Preserve whitespace and wrap text */
+            word-wrap: break-word; /* Break long words */
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05); /* Subtle inner shadow */
+        }
+        /* Custom scrollbar for better aesthetics */
+        .document-display::-webkit-scrollbar {
+            width: 8px;
+            border-radius: 10px;
+        }
+        .document-display::-webkit-scrollbar-track {
+            background: #f0f0f0; /* Light gray for track */
+            border-radius: 10px;
+        }
+        .document-display::-webkit-scrollbar-thumb {
+            background: #a78bfa; /* Light purple for thumb */
+            border-radius: 10px;
+        }
+        .document-display::-webkit-scrollbar-thumb:hover {
+            background: #8b5cf6; /* Darker purple on hover */
+        }
+
+        /* Custom styles for the sidebar */
+        .sidebar {
+            width: 250px; /* Fixed width for the sidebar */
+            background-color: #1a202c; /* Dark background for sidebar */
+            color: #e2e8f0; /* Light text color */
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+            position: fixed; /* Fixed position */
+            height: 100vh; /* Full height */
+            left: 0;
+            top: 0;
+            z-index: 10; /* Ensure it stays on top */
+        }
+
+        /* Adjust main content to account for fixed sidebar */
+        .main-content-wrapper {
+            margin-left: 250px; /* Push content to the right of the sidebar */
+            flex-grow: 1; /* Allow main content to take remaining space */
+            padding: 2rem;
+            background-color: #f8fafc; /* Very light background for main content */
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative; /* Make it relative on small screens */
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            }
+            .main-content-wrapper {
+                margin-left: 0; /* Remove margin on small screens */
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex min-h-screen font-sans antialiased">
+
+    <div class="sidebar">
+        <div class="text-2xl font-bold text-purple-400 mb-8">PDF Summary</div>
+        <nav class="space-y-4 w-full">
+            <a href="#" class="block py-2 px-4 rounded-lg text-purple-200 hover:bg-gray-700 hover:text-white transition duration-200">Home</a>
+            </nav>
+        <div class="mt-auto text-sm text-gray-500">
+            &copy; 2025 PDF Summary
+        </div>
+    </div>
+
+    <div class="main-content-wrapper flex flex-col items-center justify-start p-4 md:p-8">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-3xl border border-gray-200 mb-12">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4 text-center tracking-tight">
+                Fast and Simple <span class="text-purple-600">AI PDF Summaries</span>
+            </h1>
+            <p class="text-gray-600 mb-8 text-center text-lg leading-relaxed">
+                Effortlessly upload your PDFs, get concise summaries, and download them as new documents.
+            </p>
+
+            <div class="mb-8 p-6 border border-purple-200 rounded-xl bg-purple-50/50">
+                <label for="pdfUpload" class="block text-xl font-semibold text-gray-800 mb-3">
+                    Choose your PDF file:
+                </label>
+                <input type="file" id="pdfUpload" accept=".pdf"
+                       class="block w-full text-base text-gray-900 border border-purple-300 rounded-lg cursor-pointer bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-base file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 transition duration-200">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                <button id="summarizeButton"
+                        class="w-full bg-purple-600 text-white py-3.5 px-6 rounded-xl font-bold text-base shadow-lg hover:bg-purple-700 transition duration-300 ease-in-out transform hover:-translate-y-1.5 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-purple-300 focus:ring-opacity-75 border-b-4 border-purple-800 hover:border-b-2"
+                        disabled>
+                    Summarize PDF
+                </button>
+                <button id="downloadPdfButton"
+                        class="w-full bg-purple-500 text-white py-3.5 px-6 rounded-xl font-bold text-base shadow-lg hover:bg-purple-600 transition duration-300 ease-in-out transform hover:-translate-y-1.5 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-purple-300 focus:ring-opacity-75 border-b-4 border-purple-700 hover:border-b-2"
+                        disabled>
+                    Download Summary as PDF
+                </button>
+            </div>
+             <div class="mb-8">
+                 <button id="clearButton"
+                        class="w-full bg-gray-200 text-gray-800 py-3.5 px-6 rounded-xl font-bold text-base shadow-md hover:bg-gray-300 transition duration-300 ease-in-out transform hover:-translate-y-1.5 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-gray-300 focus:ring-opacity-75 border-b-4 border-gray-400 hover:border-b-2">
+                    Clear All
+                </button>
+            </div>
+
+            <div id="messageArea" class="mb-6 text-center text-xl font-medium">
+                <p id="loadingMessage" class="text-purple-600 hidden animate-pulse">Processing PDF and generating summary...</p>
+                <p id="errorMessage" class="text-red-600 hidden"></p>
+            </div>
+
+            <div class="mt-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-4 text-center">Summary Output:</h2>
+                <div id="summaryOutput"
+                     class="document-display bg-gray-50 border border-gray-200 rounded-xl p-7 text-gray-800 leading-relaxed shadow-inner-lg">
+                    Your concise summary will appear here after processing your PDF.
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-3xl border border-gray-200 mb-12">
+            <h2 class="text-3xl font-extrabold text-gray-900 mb-4 text-center">How to summarize a PDF</h2>
+            <p class="text-gray-600 mb-4">
+                Our tool makes it incredibly easy to get quick summaries of your documents. Follow these simple steps:
+            </p>
+            <ol class="list-decimal list-inside text-gray-700 space-y-2">
+                <li>Click the "Choose your PDF file" button and select your document.</li>
+                <li>Once the file is selected, click the "Summarize PDF" button.</li>
+                <li>Wait a few moments while our AI processes your document and generates the summary.</li>
+                <li>Read the summary directly on the page, or click "Download Summary as PDF" to save it.</li>
+            </ol>
+        </div>
+
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-3xl border border-gray-200 mb-12">
+            <h2 class="text-3xl font-extrabold text-gray-900 mb-6 text-center">Frequently Asked Questions</h2>
+            <div class="space-y-4">
+                <div class="border-b border-gray-200 pb-4">
+                    <h3 class="font-semibold text-gray-800 text-lg mb-2">What types of PDFs can I summarize?</h3>
+                    <p class="text-gray-600">
+                        Our tool works best with text-based PDFs. Image-only PDFs (scanned documents without OCR) may not yield accurate summaries as text cannot be extracted.
+                    </p>
+                </div>
+                <div class="border-b border-gray-200 pb-4">
+                    <h3 class="font-semibold text-gray-800 text-lg mb-2">Is there a limit to the PDF size?</h3>
+                    <p class="text-gray-600">
+                        While there isn't a strict file size limit, very large or complex PDFs might take longer to process, and the AI model has a token limit for the input text it can handle.
+                    </p>
+                </div>
+                <div class="border-b border-gray-200 pb-4">
+                    <h3 class="font-semibold text-gray-800 text-lg mb-2">Is my data secure?</h3>
+                    <p class="text-gray-600">
+                        We prioritize your privacy. Your PDF content is processed securely and is not stored after summarization.
+                    </p>
+                </div>
+                <div class="border-b border-gray-200 pb-4">
+                    <h3 class="font-semibold text-gray-800 text-lg mb-2">Can I use this on mobile?</h3>
+                    <p class="text-600">
+                        Yes, the website is designed to be fully responsive and works well on both desktop and mobile devices.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const pdfUpload = document.getElementById('pdfUpload');
+        const summarizeButton = document.getElementById('summarizeButton');
+        const downloadPdfButton = document.getElementById('downloadPdfButton');
+        const clearButton = document.getElementById('clearButton');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const summaryOutput = document.getElementById('summaryOutput');
+        // Your Gemini API key is now set here:
+        const apiKey = "AIzaSyDkVWQtpF6pjMUfJZyKONO4NmoHEaUf4uE"; 
+
+        let extractedText = ''; // Variable to store text extracted from PDF
+        let currentSummary = ''; // Variable to store the generated summary
+
+        // Helper function to update button states
+        function updateButtonStates() {
+            const hasFile = pdfUpload.files.length > 0;
+            const hasSummary = currentSummary.trim() !== '';
+
+            summarizeButton.disabled = !hasFile;
+            downloadPdfButton.disabled = !hasSummary;
+        }
+
+        // Enable summarize button when a file is selected
+        pdfUpload.addEventListener('change', (event) => {
+            summaryOutput.textContent = 'Your concise summary will appear here after processing your PDF.'; // Reset summary area
+            currentSummary = ''; // Clear current summary
+            displayMessage('', 'clear'); // Clear any previous errors
+            updateButtonStates();
+        });
+
+        // Event listener for the Summarize button
+        summarizeButton.addEventListener('click', async () => {
+            const file = pdfUpload.files[0];
+            if (!file) {
+                displayMessage('Please select a PDF file first.', 'error');
+                return;
+            }
+
+            displayMessage('Processing PDF and generating summary...', 'loading');
+            summarizeButton.disabled = true; // Disable button during processing
+            downloadPdfButton.disabled = true; // Disable download button during processing
+
+            try {
+                // Read the PDF file
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const arrayBuffer = e.target.result;
+                    extractedText = await extractTextFromPdf(arrayBuffer);
+
+                    if (extractedText.trim() === '') {
+                        displayMessage('Could not extract text from PDF. It might be an image-based PDF or empty.', 'error');
+                        updateButtonStates();
+                        return;
+                    }
+
+                    // Call the Gemini API to summarize the text
+                    currentSummary = await getSummaryFromGemini(extractedText);
+                    summaryOutput.textContent = currentSummary; // Display the summary
+                    displayMessage('', 'clear'); // Clear messages
+                    updateButtonStates(); // Re-enable download button
+                };
+                reader.onerror = () => {
+                    displayMessage('Error reading file.', 'error');
+                    updateButtonStates();
+                };
+                reader.readAsArrayBuffer(file);
+
+            } catch (error) {
+                console.error('An error occurred:', error);
+                displayMessage(`Failed to summarize: ${error.message || 'Unknown error'}`, 'error');
+            } finally {
+                updateButtonStates(); // Ensure buttons are updated
+            }
+        });
+
+        // Event listener for the Download PDF button
+        downloadPdfButton.addEventListener('click', () => {
+            if (currentSummary.trim() === '') {
+                displayMessage('No summary available to download.', 'error');
+                return;
+            }
+            generatePdfSummary(currentSummary);
+        });
+
+        // Event listener for the Clear button
+        clearButton.addEventListener('click', () => {
+            pdfUpload.value = ''; // Clear the file input
+            summaryOutput.textContent = 'Your concise summary will appear here after processing your PDF.'; // Reset summary area
+            extractedText = ''; // Clear extracted text
+            currentSummary = ''; // Clear current summary
+            displayMessage('', 'clear'); // Clear all messages
+            updateButtonStates(); // Disable all action buttons
+        });
+
+        /**
+         * Extracts text content from a PDF ArrayBuffer using PDF.js.
+         * @param {ArrayBuffer} arrayBuffer The PDF file as an ArrayBuffer.
+         * @returns {Promise<string>} A promise that resolves with the extracted text.
+         */
+        async function extractTextFromPdf(arrayBuffer) {
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                // Concatenate text items, adding a space between them
+                fullText += textContent.items.map(item => item.str).join(' ') + '\n';
+            }
+            return fullText;
+        }
+
+        /**
+         * Calls the Gemini API to get a summary of the provided text.
+         * @param {string} textToSummarize The text to be summarized.
+         * @returns {Promise<string>} A promise that resolves with the summary.
+         */
+        async function getSummaryFromGemini(textToSummarize) {
+            // Define the prompt for the Gemini model
+            const prompt = `Please summarize the following document text concisely and clearly. Focus on the main points and key information. Ensure the summary is easy to read and understand.
+            
+            Document text:
+            ${textToSummarize}`;
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+            const payload = { contents: chatHistory };
+            // The API key is now provided directly in the script.
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    throw new Error('No summary found in the API response.');
+                }
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                throw new Error(`Could not generate summary. Please try again. (Details: ${error.message})`);
+            }
+        }
+
+        /**
+         * Generates and downloads a PDF file containing the summarized text.
+         * @param {string} summaryText The text to be included in the PDF.
+         */
+        function generatePdfSummary(summaryText) {
+            const { jsPDF } = window.jspdf; // Get jsPDF from the window object
+
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const margin = 20;
+            const lineHeight = 10;
+            const startX = margin;
+            let startY = margin;
+            const maxWidth = pageWidth - (margin * 2);
+
+            doc.setFont('helvetica'); // Use a basic font
+            doc.setFontSize(12);
+
+            // Add a title
+            doc.setFontSize(18);
+            doc.text("Document Summary", pageWidth / 2, startY, { align: 'center' });
+            startY += 20; // Move down after title
+            doc.setFontSize(12); // Reset font size for body text
+
+            // Split the text into lines that fit the page width
+            const lines = doc.splitTextToSize(summaryText, maxWidth);
+
+            lines.forEach(line => {
+                if (startY + lineHeight > doc.internal.pageSize.getHeight() - margin) {
+                    // If text goes beyond page height, add a new page
+                    doc.addPage();
+                    startY = margin; // Reset Y position for new page
+                }
+                doc.text(line, startX, startY);
+                startY += lineHeight;
+            });
+
+            doc.save('summary_document.pdf'); // Save the PDF with a filename
+        }
+
+        /**
+         * Displays messages to the user (loading, error, or clears messages).
+         * @param {string} message The message to display.
+         * @param {'loading'|'error'|'clear'} type The type of message.
+         */
+        function displayMessage(message, type) {
+            loadingMessage.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            loadingMessage.textContent = '';
+            errorMessage.textContent = '';
+
+            if (type === 'loading') {
+                loadingMessage.textContent = message;
+                loadingMessage.classList.remove('hidden');
+            } else if (type === 'error') {
+                errorMessage.textContent = message;
+                errorMessage.classList.remove('hidden');
+            }
+            // 'clear' type hides both
+        }
+
+        // Initial state update
+        updateButtonStates();
+    </script>
+</body>
+</html>
